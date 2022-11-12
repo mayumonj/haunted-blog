@@ -25,8 +25,11 @@ class BlogsController < ApplicationController
 
   def create
     @blog = current_user.blogs.new(blog_params)
-
-    if @blog.save
+    if !@blog.user.premium? && blog_params[:random_eyecatch]
+      @blog.random_eyecatch = false
+      @blog.errors.add(:random_eyecatch, 'は有料会員のみ利用できます')
+      render :new, status: :found
+    elsif @blog.save
       redirect_to blog_url(@blog), notice: 'Blog was successfully created.'
     else
       render :new, status: :unprocessable_entity
@@ -36,7 +39,11 @@ class BlogsController < ApplicationController
   def update
     raise ActiveRecord::RecordNotFound unless @blog.owned_by?(current_user)
 
-    if @blog.update(blog_params)
+    if !@blog.user.premium? && blog_params[:random_eyecatch]
+      @blog.random_eyecatch = false
+      @blog.errors.add(:random_eyecatch, 'は有料会員のみ利用できます')
+      render :edit, status: :found
+    elsif @blog.update(blog_params)
       redirect_to blog_url(@blog), notice: 'Blog was successfully updated.'
     else
       render :edit, status: :unprocessable_entity
