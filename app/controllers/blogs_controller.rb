@@ -3,25 +3,21 @@
 class BlogsController < ApplicationController
   skip_before_action :authenticate_user!, only: %i[index show]
 
-  before_action :set_blog, only: %i[show edit update destroy]
+  before_action :set_own_blog, only: %i[edit update destroy]
 
   def index
     @blogs = Blog.search(params[:term]).published.default_order
   end
 
   def show
-    raise ActiveRecord::RecordNotFound if @blog.secret && !@blog.owned_by?(current_user)
+    @blog = Blog.where(id: params[:id]).where(user: current_user).or(Blog.published.where(id: params[:id])).take!
   end
 
   def new
     @blog = Blog.new
   end
 
-  def edit
-    return if @blog.owned_by?(current_user)
-
-    raise ActiveRecord::RecordNotFound
-  end
+  def edit; end
 
   def create
     @blog = current_user.blogs.new(blog_params)
@@ -37,8 +33,6 @@ class BlogsController < ApplicationController
   end
 
   def update
-    raise ActiveRecord::RecordNotFound unless @blog.owned_by?(current_user)
-
     if !@blog.user.premium? && blog_params[:random_eyecatch]
       @blog.random_eyecatch = false
       @blog.errors.add(:random_eyecatch, 'は有料会員のみ利用できます')
@@ -51,8 +45,6 @@ class BlogsController < ApplicationController
   end
 
   def destroy
-    raise ActiveRecord::RecordNotFound unless @blog.owned_by?(current_user)
-
     @blog.destroy!
 
     redirect_to blogs_url, notice: 'Blog was successfully destroyed.', status: :see_other
@@ -60,8 +52,8 @@ class BlogsController < ApplicationController
 
   private
 
-  def set_blog
-    @blog = Blog.find(params[:id])
+  def set_own_blog
+    @blog = Blog.find_by!(id: params[:id], user: current_user)
   end
 
   def blog_params
