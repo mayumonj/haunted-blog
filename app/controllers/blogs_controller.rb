@@ -20,12 +20,12 @@ class BlogsController < ApplicationController
   def edit; end
 
   def create
-    @blog = current_user.blogs.new(blog_params)
-    if !@blog.user.premium? && blog_params[:random_eyecatch]
-      @blog.random_eyecatch = false
-      @blog.errors.add(:random_eyecatch, 'は有料会員のみ利用できます')
-      render :new, status: :found
-    elsif @blog.save
+    @blog = if current_user.premium
+              current_user.blogs.new(blog_params_premium)
+            else
+              current_user.blogs.new(blog_params)
+            end
+    if @blog.save
       redirect_to blog_url(@blog), notice: 'Blog was successfully created.'
     else
       render :new, status: :unprocessable_entity
@@ -33,11 +33,12 @@ class BlogsController < ApplicationController
   end
 
   def update
-    if !@blog.user.premium? && blog_params[:random_eyecatch]
-      @blog.random_eyecatch = false
-      @blog.errors.add(:random_eyecatch, 'は有料会員のみ利用できます')
-      render :edit, status: :found
-    elsif @blog.update(blog_params)
+    is_update_success = if @blog.user.premium?
+                          @blog.update(blog_params_premium)
+                        else
+                          @blog.update(blog_params)
+                        end
+    if is_update_success
       redirect_to blog_url(@blog), notice: 'Blog was successfully updated.'
     else
       render :edit, status: :unprocessable_entity
@@ -57,6 +58,10 @@ class BlogsController < ApplicationController
   end
 
   def blog_params
+    params.require(:blog).permit(:title, :content, :secret)
+  end
+
+  def blog_params_premium
     params.require(:blog).permit(:title, :content, :secret, :random_eyecatch)
   end
 end
